@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>天気図の等圧線 3D表示</title>
+  <title>天気図 等圧線3D表示（SVGZ対応）</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -10,38 +10,46 @@
 </head>
 <body>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
 <script>
-async function fetchIsobarSVG() {
-  const url = 'https://www.data.jma.go.jp/yoho/data/wxchart/quick/202505/SPAS_COLOR_202505271800.svgz';
+async function fetchAndParseSVGZ(url) {
   const res = await fetch(url);
-  const text = await res.text();
-  return new window.DOMParser().parseFromString(text, "image/svg+xml");
+  const buffer = await res.arrayBuffer();
+  const decompressed = pako.inflate(new Uint8Array(buffer), { to: 'string' });
+  const parser = new DOMParser();
+  return parser.parseFromString(decompressed, "image/svg+xml");
 }
 
 function pressureToHeight(p) {
-  return (1 - Math.pow(p / 1013.25, 0.190284)) * 43.3; // 約43kmを43mへスケーリング
+  return (1 - Math.pow(p / 1013.25, 0.190284)) * 43.3;
 }
 
 function extractIsobars(svg) {
   const lines = [];
-  const texts = svg.querySelectorAll('g.isobar > text');
-  const polylines = svg.querySelectorAll('g.isobar > polyline');
+  const texts = svg.querySelectorAll('text');
+  const polylines = svg.querySelectorAll('polyline');
 
   texts.forEach((textEl, i) => {
-    const p = parseInt(textEl.textContent);
-    const z = pressureToHeight(p);
-    const points = polylines[i].getAttribute('points').trim().split(" ").map(pt => {
-      const [x, y] = pt.split(',').map(Number);
-      return new THREE.Vector3(x / 10, -y / 10, z);  // 座標調整
-    });
-    lines.push(points);
+    const label = textEl.textContent.trim();
+    const p = parseInt(label);
+    if (!isNaN(p)) {
+      const z = pressureToHeight(p);
+      const polyline = polylines[i];
+      if (polyline) {
+        const points = polyline.getAttribute('points').trim().split(' ').map(pt => {
+          const [x, y] = pt.split(',').map(Number);
+          return new THREE.Vector3(x / 10, -y / 10, z);
+        });
+        lines.push(points);
+      }
+    }
   });
   return lines;
 }
 
 async function main() {
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 1, 1000);
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
   camera.position.set(0, -100, 100);
   camera.lookAt(0, 0, 0);
 
@@ -53,7 +61,7 @@ async function main() {
   light.position.set(0, 0, 100);
   scene.add(light);
 
-  const svg = await fetchIsobarSVG();
+  const svg = await fetchAndParseSVGZ("https://www.data.jma.go.jp/yoho/data/wxchart/quick/202505/SPAS_COLOR_202505271800.svgz");
   const isobars = extractIsobars(svg);
 
   isobars.forEach(line => {
