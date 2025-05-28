@@ -2,26 +2,23 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>SVGZ天気図の等圧線 3D表示</title>
+  <title>天気図 等圧線3D表示</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
   </style>
 </head>
 <body>
-<!-- Three.jsとpako.jsを読み込み -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
 <script>
-async function fetchAndParseSVGZ(url) {
-  const res = await fetch(url);
-  const arrayBuffer = await res.arrayBuffer();
-  const inflated = pako.inflate(new Uint8Array(arrayBuffer), { to: 'string' });
-  return new DOMParser().parseFromString(inflated, "image/svg+xml");
+async function fetchAndParseSVG() {
+  const res = await fetch("https://osaki2014.github.io/weather-map-3d/SPAS_COLOR_202505271800.svg");
+  const text = await res.text();
+  return new DOMParser().parseFromString(text, "image/svg+xml");
 }
 
 function pressureToHeight(p) {
-  return (1 - Math.pow(p / 1013.25, 0.190284)) * 43.3;
+  return (1 - Math.pow(p / 1013.25, 0.190284)) * 43.3; // 高さ[m]に変換（簡易式）
 }
 
 function extractIsobars(svg) {
@@ -38,7 +35,7 @@ function extractIsobars(svg) {
       if (polyline) {
         const points = polyline.getAttribute('points').trim().split(' ').map(pt => {
           const [x, y] = pt.split(',').map(Number);
-          return new THREE.Vector3(x / 10, -y / 10, z);
+          return new THREE.Vector3(x / 10, -y / 10, z); // スケーリング調整
         });
         lines.push(points);
       }
@@ -61,28 +58,24 @@ async function main() {
   light.position.set(0, 0, 100);
   scene.add(light);
 
-  try {
-    const svg = await fetchAndParseSVGZ("https://www.data.jma.go.jp/yoho/data/wxchart/quick/202505/SPAS_COLOR_202505271800.svgz");
-    const isobars = extractIsobars(svg);
+  const svg = await fetchAndParseSVG();
+  const isobars = extractIsobars(svg);
 
-    isobars.forEach(line => {
-      const geometry = new THREE.BufferGeometry().setFromPoints(line);
-      const material = new THREE.LineBasicMaterial({ color: 0x3366ff });
-      const mesh = new THREE.Line(geometry, material);
-      scene.add(mesh);
-    });
+  isobars.forEach(line => {
+    const geometry = new THREE.BufferGeometry().setFromPoints(line);
+    const material = new THREE.LineBasicMaterial({ color: 0x3366ff });
+    const mesh = new THREE.Line(geometry, material);
+    scene.add(mesh);
+  });
 
-    function animate() {
-      requestAnimationFrame(animate);
-      camera.position.x = 100 * Math.cos(Date.now() * 0.0005);
-      camera.position.y = 100 * Math.sin(Date.now() * 0.0005);
-      camera.lookAt(0, 0, 0);
-      renderer.render(scene, camera);
-    }
-    animate();
-  } catch (err) {
-    console.error("SVGZの取得または解凍に失敗:", err);
+  function animate() {
+    requestAnimationFrame(animate);
+    camera.position.x = 100 * Math.cos(Date.now() * 0.0005);
+    camera.position.y = 100 * Math.sin(Date.now() * 0.0005);
+    camera.lookAt(0, 0, 0);
+    renderer.render(scene, camera);
   }
+  animate();
 }
 main();
 </script>
