@@ -18,29 +18,30 @@ async function fetchAndParseSVG() {
 }
 
 function pressureToHeight(p) {
-  return (1 - Math.pow(p / 1013.25, 0.190284)) * 43.3; // 高さ[m]に変換（簡易式）
+  return (1 - Math.pow(p / 1013.25, 0.190284)) * 43.3;
 }
 
 function extractIsobars(svg) {
   const lines = [];
-  const texts = svg.querySelectorAll('text');
-  const polylines = svg.querySelectorAll('polyline');
+  const g_elements = svg.querySelectorAll('g');
 
-  texts.forEach((textEl, i) => {
-    const label = textEl.textContent.trim();
-    const p = parseInt(label);
-    if (!isNaN(p)) {
-      const z = pressureToHeight(p);
-      const polyline = polylines[i];
-      if (polyline) {
+  g_elements.forEach(g => {
+    const polyline = g.querySelector('polyline');
+    const textEl = g.querySelector('text');
+
+    if (polyline && textEl) {
+      const p = parseInt(textEl.textContent.trim());
+      if (!isNaN(p)) {
+        const z = pressureToHeight(p);
         const points = polyline.getAttribute('points').trim().split(' ').map(pt => {
           const [x, y] = pt.split(',').map(Number);
-          return new THREE.Vector3(x / 10, -y / 10, z); // スケーリング調整
+          return new THREE.Vector3(x / 10, -y / 10, z);
         });
         lines.push(points);
       }
     }
   });
+
   return lines;
 }
 
