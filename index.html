@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>天気図 等圧線3D表示（SVGZ対応）</title>
+  <title>天気図 等圧線3D表示</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -10,14 +10,11 @@
 </head>
 <body>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
 <script>
-async function fetchAndParseSVGZ(url) {
-  const res = await fetch(url);
-  const buffer = await res.arrayBuffer();
-  const decompressed = pako.inflate(new Uint8Array(buffer), { to: 'string' });
-  const parser = new DOMParser();
-  return parser.parseFromString(decompressed, "image/svg+xml");
+async function fetchAndParseSVG() {
+  const res = await fetch("https://www.jma.go.jp/bosai/weather_map/data/202405280000.svg");
+  const text = await res.text();
+  return new DOMParser().parseFromString(text, "image/svg+xml");
 }
 
 function pressureToHeight(p) {
@@ -26,22 +23,19 @@ function pressureToHeight(p) {
 
 function extractIsobars(svg) {
   const lines = [];
-  const texts = svg.querySelectorAll('text');
-  const polylines = svg.querySelectorAll('polyline');
+  const texts = svg.querySelectorAll('g.isobar > text');
+  const polylines = svg.querySelectorAll('g.isobar > polyline');
 
   texts.forEach((textEl, i) => {
-    const label = textEl.textContent.trim();
-    const p = parseInt(label);
-    if (!isNaN(p)) {
-      const z = pressureToHeight(p);
-      const polyline = polylines[i];
-      if (polyline) {
-        const points = polyline.getAttribute('points').trim().split(' ').map(pt => {
-          const [x, y] = pt.split(',').map(Number);
-          return new THREE.Vector3(x / 10, -y / 10, z);
-        });
-        lines.push(points);
-      }
+    const p = parseInt(textEl.textContent);
+    const z = pressureToHeight(p);
+    const polyline = polylines[i];
+    if (polyline) {
+      const points = polyline.getAttribute('points').trim().split(' ').map(pt => {
+        const [x, y] = pt.split(',').map(Number);
+        return new THREE.Vector3(x / 10, -y / 10, z);
+      });
+      lines.push(points);
     }
   });
   return lines;
@@ -61,7 +55,7 @@ async function main() {
   light.position.set(0, 0, 100);
   scene.add(light);
 
-  const svg = await fetchAndParseSVGZ("https://www.data.jma.go.jp/yoho/data/wxchart/quick/202505/SPAS_COLOR_202505271800.svgz");
+  const svg = await fetchAndParseSVG();
   const isobars = extractIsobars(svg);
 
   isobars.forEach(line => {
