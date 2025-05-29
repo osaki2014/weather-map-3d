@@ -22,15 +22,29 @@ function extractIsobars(svg) {
   const polylines = svg.querySelectorAll('polyline');
 
   polylines.forEach(polyline => {
-    const points = polyline.getAttribute('points').trim().split(' ').map(pt => {
-      const [x, y] = pt.split(',').map(Number);
-      return new THREE.Vector3(x / 10, -y / 10, 0); // Z=0に固定
+    const raw = polyline.getAttribute('points');
+    if (!raw || raw.trim() === "") return; // 空チェック
+
+    const pointList = raw.trim().split(' ');
+    const validPoints = [];
+
+    pointList.forEach(pt => {
+      const [xStr, yStr] = pt.split(',');
+      const x = parseFloat(xStr);
+      const y = parseFloat(yStr);
+      if (!isNaN(x) && !isNaN(y)) {
+        validPoints.push(new THREE.Vector3(x / 10, -y / 10, 0));
+      }
     });
-    lines.push(points);
+
+    if (validPoints.length > 1) {
+      lines.push(validPoints);
+    }
   });
 
   return lines;
 }
+
 
 async function main() {
   const scene = new THREE.Scene();
