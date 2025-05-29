@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>天気図 等圧線3D表示</title>
+  <title>天気図 等圧線3D表示（Z=固定）</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -17,29 +17,16 @@ async function fetchAndParseSVG() {
   return new DOMParser().parseFromString(text, "image/svg+xml");
 }
 
-function pressureToHeight(p) {
-  return (1 - Math.pow(p / 1013.25, 0.190284)) * 43.3;
-}
-
 function extractIsobars(svg) {
   const lines = [];
-  const g_elements = svg.querySelectorAll('g');
+  const polylines = svg.querySelectorAll('polyline');
 
-  g_elements.forEach(g => {
-    const polyline = g.querySelector('polyline');
-    const textEl = g.querySelector('text');
-
-    if (polyline && textEl) {
-      const p = parseInt(textEl.textContent.trim());
-      if (!isNaN(p)) {
-        const z = pressureToHeight(p);
-        const points = polyline.getAttribute('points').trim().split(' ').map(pt => {
-          const [x, y] = pt.split(',').map(Number);
-          return new THREE.Vector3(x / 10, -y / 10, z);
-        });
-        lines.push(points);
-      }
-    }
+  polylines.forEach(polyline => {
+    const points = polyline.getAttribute('points').trim().split(' ').map(pt => {
+      const [x, y] = pt.split(',').map(Number);
+      return new THREE.Vector3(x / 10, -y / 10, 0); // Z=0に固定
+    });
+    lines.push(points);
   });
 
   return lines;
