@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>等圧線（contourクラスのみ）3D表示</title>
+  <title>等圧線（path）3D表示</title>
   <style>
     body { margin: 0; overflow: hidden; background: #fff; }
     canvas { display: block; }
@@ -34,37 +34,27 @@ document.getElementById("zSlider").addEventListener("input", (e) => {
 
 let scene, camera, renderer, isobarMeshes = [];
 
-async function fetchAndParseSVG() {
+async function fetchSVG() {
   const res = await fetch("https://osaki2014.github.io/weather-map-3d/SPAS_MONO_202506021800.svg");
-  const text = await res.text();
-  return new DOMParser().parseFromString(text, "image/svg+xml");
+  return (new DOMParser()).parseFromString(await res.text(), "image/svg+xml");
 }
 
-function extractContourPolylines(svg) {
-  const lines = [];
-  const contourGroups = svg.querySelectorAll('g.contour polyline');
-
-  contourGroups.forEach((polyline, index) => {
-    const raw = polyline.getAttribute('points');
-    if (!raw || raw.trim() === "") return;
-
-    const coords = raw.trim().split(/\s+/);
-    const validPoints = [];
-
+function parsePathD(d) {
+  const points = [];
+  const commands = d.match(/[ML][^ML]*/g);
+  if (!commands) return points;
+  commands.forEach(cmd => {
+    const type = cmd[0];
+    const coords = cmd.slice(1).trim().split(/[ ,]+/).map(Number);
     for (let i = 0; i < coords.length - 1; i += 2) {
-      const x = parseFloat(coords[i]);
-      const y = parseFloat(coords[i + 1]);
+      const x = coords[i];
+      const y = coords[i + 1];
       if (!isNaN(x) && !isNaN(y)) {
-        validPoints.push(new THREE.Vector3(x / 10, -y / 10, 0));
+        points.push({ x: x / 10, y: -y / 10 });
       }
     }
-
-    if (validPoints.length > 1) {
-      lines.push({ index, points: validPoints });
-    }
   });
-
-  return lines;
+  return points;
 }
 
 function updateZPositions() {
@@ -90,15 +80,21 @@ async function main() {
   light.position.set(0, 0, 100);
   scene.add(light);
 
-  const isobars = extractContourPolylines(await fetchAndParseSVG());
+  const svg = await fetchSVG();
+  const pathEls = svg.querySelectorAll("path");
 
-  isobars.forEach(({ index, points }) => {
-    const zPoints = points.map(p => new THREE.Vector3(p.x, p.y, index * zScale));
-    const geometry = new THREE.BufferGeometry().setFromPoints(zPoints);
-    const material = new THREE.LineBasicMaterial({ color: 0x00a0ff });
+  pathEls.forEach((pathEl, index) => {
+    const d = pathEl.getAttribute("d");
+    if (!d) return;
+    const rawPoints = parsePathD(d);
+    if (rawPoints.length < 2) return;
+
+    const points = rawPoints.map(p => new THREE.Vector3(p.x, p.y, index * zScale));
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
     const mesh = new THREE.Line(geometry, material);
     scene.add(mesh);
-    isobarMeshes.push({ mesh, index, points });
+    isobarMeshes.push({ mesh, index, points: rawPoints });
   });
 
   function animate() {
