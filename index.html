@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>等圧線 SVGPathProperties 定義済み</title>
+  <title>等圧線表示（unpkg対応）</title>
   <style>
     body { margin: 0; overflow: hidden; background: #fff; }
     canvas { display: block; }
@@ -17,7 +17,7 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/svg-path-properties@1.1.0/dist/svg-path-properties.umd.min.js"></script>
+  <script src="https://unpkg.com/svg-path-properties@1.1.0/dist/svg-path-properties.umd.min.js"></script>
 </head>
 <body>
 <div id="slider-container">
@@ -27,7 +27,6 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-  // 明示的にグローバルから取得
   const SVGPathProperties = window.SVGPathProperties || (window.svgPathProperties && window.svgPathProperties.SVGPathProperties);
   if (!SVGPathProperties) {
     alert("SVGPathProperties が読み込まれていません！");
