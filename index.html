@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>完全な等圧線3D表示（Bezier含む）</title>
+  <title>完全な等圧線3D表示（Bezier修正済み）</title>
   <style>
     body { margin: 0; overflow: hidden; background: #fff; }
     canvas { display: block; }
@@ -47,23 +47,23 @@ function sampleBezier(p0, p1, p2, p3, t) {
 }
 
 function parseFullPath(d) {
-  const parsed = window.parseSVG(d);
-  let x = 0, y = 0, cx = 0, cy = 0;
+  const parsed = window.SVGPathParser.parseSVG(d);
+  let x = 0, y = 0;
   const points = [];
 
   parsed.forEach(cmd => {
-    switch (cmd.code) {
-      case 'M':
+    switch (cmd.command) {
+      case 'moveto':
         x = cmd.x;
         y = cmd.y;
         points.push({ x, y });
         break;
-      case 'L':
+      case 'lineto':
         x = cmd.x;
         y = cmd.y;
         points.push({ x, y });
         break;
-      case 'C':
+      case 'curveto':
         const p0 = { x, y };
         const p1 = { x: cmd.x1, y: cmd.y1 };
         const p2 = { x: cmd.x2, y: cmd.y2 };
@@ -77,6 +77,7 @@ function parseFullPath(d) {
         break;
     }
   });
+
   return points.map(p => ({ x: p.x / 10, y: -p.y / 10 }));
 }
 
