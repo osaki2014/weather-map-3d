@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>等圧線デバッグ表示</title>
+  <title>等圧線 3D 表示（SVGPathProperties 修正）</title>
   <style>
     body { margin: 0; overflow: hidden; background: #fff; }
     canvas { display: block; }
@@ -24,7 +24,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/svg-path-properties@1.1.0/dist/svg-path-properties.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/svg-path-properties@1.1.0/dist/svg-path-properties.js"></script>
 <script>
 let zScale = 1;
 document.getElementById("zSlider").addEventListener("input", (e) => {
@@ -42,7 +42,12 @@ async function fetchSVG() {
 
 function getPointsFromPath(d, samples = 100, index = 0) {
   try {
-    const props = new window.SVGPathProperties(d);
+    const SVGPathProps = window.SVGPathProperties || window.svgPathProperties?.SVGPathProperties || window.svgpathproperties?.SVGPathProperties;
+    if (!SVGPathProps) {
+      console.warn("⚠️ SVGPathProperties not found.");
+      return [];
+    }
+    const props = new SVGPathProps(d);
     const len = props.getTotalLength();
     const points = [];
     for (let i = 0; i <= samples; i++) {
