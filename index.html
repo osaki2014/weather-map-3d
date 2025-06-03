@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>等圧線表示（ローカルJS版）</title>
+  <title>等圧線表示（絶対URL版）</title>
   <style>
     body { margin: 0; overflow: hidden; background: #fff; }
     canvas { display: block; }
@@ -17,7 +17,7 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-  <script src="./svg-path-properties.min.js"></script>
+  <script src="https://osaki2014.github.io/weather-map-3d/svg-path-properties.min.js"></script>
 </head>
 <body>
 <div id="slider-container">
@@ -29,7 +29,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const SVGPathProperties = window.SVGPathProperties || (window.svgPathProperties && window.svgPathProperties.SVGPathProperties);
   if (!SVGPathProperties) {
-    alert("SVGPathProperties が読み込まれていません！（ローカル）");
+    alert("SVGPathProperties が読み込まれていません！（絶対URL）");
     return;
   }
 
