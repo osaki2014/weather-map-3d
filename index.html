@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>等圧線（path）3D表示</title>
+  <title>完全な等圧線3D表示（Bezier含む）</title>
   <style>
     body { margin: 0; overflow: hidden; background: #fff; }
     canvas { display: block; }
@@ -24,6 +24,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/svg-path-parser@1.1.0/dist/svg-path-parser.min.js"></script>
 <script>
 let zScale = 1;
 document.getElementById("zSlider").addEventListener("input", (e) => {
@@ -39,22 +40,44 @@ async function fetchSVG() {
   return (new DOMParser()).parseFromString(await res.text(), "image/svg+xml");
 }
 
-function parsePathD(d) {
+function sampleBezier(p0, p1, p2, p3, t) {
+  const x = Math.pow(1 - t, 3) * p0.x + 3 * Math.pow(1 - t, 2) * t * p1.x + 3 * (1 - t) * Math.pow(t, 2) * p2.x + Math.pow(t, 3) * p3.x;
+  const y = Math.pow(1 - t, 3) * p0.y + 3 * Math.pow(1 - t, 2) * t * p1.y + 3 * (1 - t) * Math.pow(t, 2) * p2.y + Math.pow(t, 3) * p3.y;
+  return { x, y };
+}
+
+function parseFullPath(d) {
+  const parsed = window.parseSVG(d);
+  let x = 0, y = 0, cx = 0, cy = 0;
   const points = [];
-  const commands = d.match(/[ML][^ML]*/g);
-  if (!commands) return points;
-  commands.forEach(cmd => {
-    const type = cmd[0];
-    const coords = cmd.slice(1).trim().split(/[ ,]+/).map(Number);
-    for (let i = 0; i < coords.length - 1; i += 2) {
-      const x = coords[i];
-      const y = coords[i + 1];
-      if (!isNaN(x) && !isNaN(y)) {
-        points.push({ x: x / 10, y: -y / 10 });
-      }
+
+  parsed.forEach(cmd => {
+    switch (cmd.code) {
+      case 'M':
+        x = cmd.x;
+        y = cmd.y;
+        points.push({ x, y });
+        break;
+      case 'L':
+        x = cmd.x;
+        y = cmd.y;
+        points.push({ x, y });
+        break;
+      case 'C':
+        const p0 = { x, y };
+        const p1 = { x: cmd.x1, y: cmd.y1 };
+        const p2 = { x: cmd.x2, y: cmd.y2 };
+        const p3 = { x: cmd.x, y: cmd.y };
+        for (let t = 0.05; t <= 1; t += 0.05) {
+          const pt = sampleBezier(p0, p1, p2, p3, t);
+          points.push(pt);
+        }
+        x = cmd.x;
+        y = cmd.y;
+        break;
     }
   });
-  return points;
+  return points.map(p => ({ x: p.x / 10, y: -p.y / 10 }));
 }
 
 function updateZPositions() {
@@ -86,12 +109,12 @@ async function main() {
   pathEls.forEach((pathEl, index) => {
     const d = pathEl.getAttribute("d");
     if (!d) return;
-    const rawPoints = parsePathD(d);
+    const rawPoints = parseFullPath(d);
     if (rawPoints.length < 2) return;
 
     const points = rawPoints.map(p => new THREE.Vector3(p.x, p.y, index * zScale));
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+    const material = new THREE.LineBasicMaterial({ color: 0x0077cc });
     const mesh = new THREE.Line(geometry, material);
     scene.add(mesh);
     isobarMeshes.push({ mesh, index, points: rawPoints });
