@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>等圧線 正常描画（読み込み順修正済）</title>
+  <title>等圧線 SVGPathProperties 定義済み</title>
   <style>
     body { margin: 0; overflow: hidden; background: #fff; }
     canvas { display: block; }
@@ -27,6 +27,13 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
+  // 明示的にグローバルから取得
+  const SVGPathProperties = window.SVGPathProperties || (window.svgPathProperties && window.svgPathProperties.SVGPathProperties);
+  if (!SVGPathProperties) {
+    alert("SVGPathProperties が読み込まれていません！");
+    return;
+  }
+
   let zScale = 1;
   document.getElementById("zSlider").addEventListener("input", (e) => {
     zScale = parseFloat(e.target.value);
