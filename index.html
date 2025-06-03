@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>等圧線 完全3D表示（UMD対応版）</title>
+  <title>等圧線 正常描画（読み込み順修正済）</title>
   <style>
     body { margin: 0; overflow: hidden; background: #fff; }
     canvas { display: block; }
@@ -16,6 +16,8 @@
       font-family: sans-serif;
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/svg-path-properties@1.1.0/dist/svg-path-properties.umd.min.js"></script>
 </head>
 <body>
 <div id="slider-container">
@@ -23,91 +25,92 @@
   <span id="zValue">1.0</span>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/svg-path-properties@1.1.0/dist/svg-path-properties.umd.min.js"></script>
 <script>
-let zScale = 1;
-document.getElementById("zSlider").addEventListener("input", (e) => {
-  zScale = parseFloat(e.target.value);
-  document.getElementById("zValue").textContent = zScale.toFixed(1);
-  updateZPositions();
-});
+document.addEventListener("DOMContentLoaded", () => {
+  let zScale = 1;
+  document.getElementById("zSlider").addEventListener("input", (e) => {
+    zScale = parseFloat(e.target.value);
+    document.getElementById("zValue").textContent = zScale.toFixed(1);
+    updateZPositions();
+  });
 
-let scene, camera, renderer, isobarMeshes = [];
+  let scene, camera, renderer, isobarMeshes = [];
 
-async function fetchSVG() {
-  const res = await fetch("https://osaki2014.github.io/weather-map-3d/SPAS_MONO_202506021800.svg");
-  return (new DOMParser()).parseFromString(await res.text(), "image/svg+xml");
-}
+  async function fetchSVG() {
+    const res = await fetch("https://osaki2014.github.io/weather-map-3d/SPAS_MONO_202506021800.svg");
+    return (new DOMParser()).parseFromString(await res.text(), "image/svg+xml");
+  }
 
-function getPointsFromPath(d, samples = 100, index = 0) {
-  try {
-    const props = new SVGPathProperties(d);
-    const len = props.getTotalLength();
-    const points = [];
-    for (let i = 0; i <= samples; i++) {
-      const { x, y } = props.getPointAtLength((i / samples) * len);
-      points.push({ x: x / 10, y: -y / 10 });
+  function getPointsFromPath(d, samples = 100, index = 0) {
+    try {
+      const props = new SVGPathProperties(d);
+      const len = props.getTotalLength();
+      const points = [];
+      for (let i = 0; i <= samples; i++) {
+        const { x, y } = props.getPointAtLength((i / samples) * len);
+        points.push({ x: x / 10, y: -y / 10 });
+      }
+      console.log(`✅ path[${index}] length=${len.toFixed(2)}, points=${points.length}`);
+      return points;
+    } catch (e) {
+      console.warn(`⚠️ path[${index}] error:`, e);
+      return [];
     }
-    console.log(`✅ path[${index}] length=${len.toFixed(2)}, points=${points.length}`);
-    return points;
-  } catch (e) {
-    console.warn(`⚠️ path[${index}] error:`, e);
-    return [];
   }
-}
 
-function updateZPositions() {
-  isobarMeshes.forEach(({ mesh, index, points }) => {
-    const newPoints = points.map(p => new THREE.Vector3(p.x, p.y, index * zScale));
-    mesh.geometry.setFromPoints(newPoints);
-  });
-}
+  function updateZPositions() {
+    isobarMeshes.forEach(({ mesh, index, points }) => {
+      const newPoints = points.map(p => new THREE.Vector3(p.x, p.y, index * zScale));
+      mesh.geometry.setFromPoints(newPoints);
+    });
+  }
 
-async function main() {
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xffffff);
+  async function main() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xffffff);
 
-  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
-  camera.position.set(0, -80, 80);
-  camera.lookAt(0, 0, 0);
-
-  renderer = new THREE.WebGLRenderer();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
-
-  const light = new THREE.DirectionalLight(0x000000, 1);
-  light.position.set(0, 0, 100);
-  scene.add(light);
-
-  const svg = await fetchSVG();
-  const pathEls = svg.querySelectorAll("path");
-  console.log("📄 pathタグ数:", pathEls.length);
-
-  pathEls.forEach((pathEl, index) => {
-    const d = pathEl.getAttribute("d");
-    if (!d) return;
-    const rawPoints = getPointsFromPath(d, 100, index);
-    if (rawPoints.length < 2) return;
-
-    const points = rawPoints.map(p => new THREE.Vector3(p.x, p.y, index * zScale));
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({ color: 0x0066cc });
-    const mesh = new THREE.Line(geometry, material);
-    scene.add(mesh);
-    isobarMeshes.push({ mesh, index, points: rawPoints });
-  });
-
-  function animate() {
-    requestAnimationFrame(animate);
-    camera.position.x = 100 * Math.cos(Date.now() * 0.0005);
-    camera.position.y = 100 * Math.sin(Date.now() * 0.0005);
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
+    camera.position.set(0, -80, 80);
     camera.lookAt(0, 0, 0);
-    renderer.render(scene, camera);
+
+    renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const light = new THREE.DirectionalLight(0x000000, 1);
+    light.position.set(0, 0, 100);
+    scene.add(light);
+
+    const svg = await fetchSVG();
+    const pathEls = svg.querySelectorAll("path");
+    console.log("📄 pathタグ数:", pathEls.length);
+
+    pathEls.forEach((pathEl, index) => {
+      const d = pathEl.getAttribute("d");
+      if (!d) return;
+      const rawPoints = getPointsFromPath(d, 100, index);
+      if (rawPoints.length < 2) return;
+
+      const points = rawPoints.map(p => new THREE.Vector3(p.x, p.y, index * zScale));
+      const geometry = new THREE.BufferGeometry().setFromPoints(points);
+      const material = new THREE.LineBasicMaterial({ color: 0x0066cc });
+      const mesh = new THREE.Line(geometry, material);
+      scene.add(mesh);
+      isobarMeshes.push({ mesh, index, points: rawPoints });
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      camera.position.x = 100 * Math.cos(Date.now() * 0.0005);
+      camera.position.y = 100 * Math.sin(Date.now() * 0.0005);
+      camera.lookAt(0, 0, 0);
+      renderer.render(scene, camera);
+    }
+    animate();
   }
-  animate();
-}
-main();
+
+  main();
+});
 </script>
 </body>
 </html>
