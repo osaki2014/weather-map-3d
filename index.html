@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>等圧線表示（svg-path-properties対応）</title>
+  <title>等圧線デバッグ表示</title>
   <style>
     body { margin: 0; overflow: hidden; background: #fff; }
     canvas { display: block; }
@@ -40,7 +40,7 @@ async function fetchSVG() {
   return (new DOMParser()).parseFromString(await res.text(), "image/svg+xml");
 }
 
-function getPointsFromPath(d, samples = 50) {
+function getPointsFromPath(d, samples = 100, index = 0) {
   try {
     const props = new window.SVGPathProperties(d);
     const len = props.getTotalLength();
@@ -49,8 +49,10 @@ function getPointsFromPath(d, samples = 50) {
       const { x, y } = props.getPointAtLength((i / samples) * len);
       points.push({ x: x / 10, y: -y / 10 });
     }
+    console.log(`✅ path[${index}] length=${len.toFixed(2)}, points=${points.length}`);
     return points;
   } catch (e) {
+    console.warn(`⚠️ path[${index}] error:`, e);
     return [];
   }
 }
@@ -80,11 +82,12 @@ async function main() {
 
   const svg = await fetchSVG();
   const pathEls = svg.querySelectorAll("path");
+  console.log("📄 pathタグ数:", pathEls.length);
 
   pathEls.forEach((pathEl, index) => {
     const d = pathEl.getAttribute("d");
     if (!d) return;
-    const rawPoints = getPointsFromPath(d, 100);
+    const rawPoints = getPointsFromPath(d, 100, index);
     if (rawPoints.length < 2) return;
 
     const points = rawPoints.map(p => new THREE.Vector3(p.x, p.y, index * zScale));
