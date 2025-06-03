@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>等圧線3D表示（Z段差＋地図固定）</title>
+  <title>等圧線3D表示（Z段差＋地図固定・修正）</title>
   <style>
     body { margin: 0; overflow: hidden; background: #fff; }
     canvas { display: block; }
@@ -61,7 +61,7 @@ function extractPolylines(svg) {
     }
 
     if (validPoints.length > 1) {
-      if (index < 100) { // 地図の海岸線など (仮に前半100件)
+      if (index < 20) {
         mapLines.push(validPoints);
       } else {
         isobarLines.push({ index, points: validPoints });
@@ -74,7 +74,7 @@ function extractPolylines(svg) {
 
 function updateZPositions() {
   isobarMeshes.forEach(({ mesh, index, points }) => {
-    const newPoints = points.map(p => new THREE.Vector3(p.x, p.y, index * zScale));
+    const newPoints = points.map(p => new THREE.Vector3(p.x, p.y, (index - 20) * zScale));
     mesh.geometry.setFromPoints(newPoints);
   });
 }
@@ -98,7 +98,6 @@ async function main() {
   const svg = await fetchAndParseSVG();
   const { mapLines, isobarLines } = extractPolylines(svg);
 
-  // 地図をZ=0に固定で表示
   mapLines.forEach(points => {
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     const material = new THREE.LineBasicMaterial({ color: 0x444444 });
@@ -106,9 +105,8 @@ async function main() {
     scene.add(mesh);
   });
 
-  // 等圧線をZスケール付きで表示
   isobarLines.forEach(({ index, points }) => {
-    const zPoints = points.map(p => new THREE.Vector3(p.x, p.y, index * zScale));
+    const zPoints = points.map(p => new THREE.Vector3(p.x, p.y, (index - 20) * zScale));
     const geometry = new THREE.BufferGeometry().setFromPoints(zPoints);
     const material = new THREE.LineBasicMaterial({ color: 0x00a0ff });
     const mesh = new THREE.Line(geometry, material);
