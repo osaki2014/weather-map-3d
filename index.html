@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>等圧線3D表示（Z段差＋背景白＋スライダー付き）</title>
+  <title>等圧線3D表示（Z段差＋地図固定）</title>
   <style>
     body { margin: 0; overflow: hidden; background: #fff; }
     canvas { display: block; }
@@ -19,7 +19,7 @@
 </head>
 <body>
 <div id="slider-container">
-  Z倍率: <input type="range" id="zSlider" min="0" max="5" value="1" step="0.1">
+  等圧線Z倍率: <input type="range" id="zSlider" min="0" max="5" value="1" step="0.1">
   <span id="zValue">1.0</span>
 </div>
 
@@ -40,8 +40,9 @@ async function fetchAndParseSVG() {
   return new DOMParser().parseFromString(text, "image/svg+xml");
 }
 
-function extractIsobars(svg) {
-  const lines = [];
+function extractPolylines(svg) {
+  const mapLines = [];
+  const isobarLines = [];
   const polylines = svg.querySelectorAll('polyline');
 
   polylines.forEach((polyline, index) => {
@@ -60,11 +61,15 @@ function extractIsobars(svg) {
     }
 
     if (validPoints.length > 1) {
-      lines.push({ index, points: validPoints });
+      if (index < 100) { // 地図の海岸線など (仮に前半100件)
+        mapLines.push(validPoints);
+      } else {
+        isobarLines.push({ index, points: validPoints });
+      }
     }
   });
 
-  return lines;
+  return { mapLines, isobarLines };
 }
 
 function updateZPositions() {
@@ -91,9 +96,18 @@ async function main() {
   scene.add(light);
 
   const svg = await fetchAndParseSVG();
-  const isobars = extractIsobars(svg);
+  const { mapLines, isobarLines } = extractPolylines(svg);
 
-  isobars.forEach(({ index, points }) => {
+  // 地図をZ=0に固定で表示
+  mapLines.forEach(points => {
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({ color: 0x444444 });
+    const mesh = new THREE.Line(geometry, material);
+    scene.add(mesh);
+  });
+
+  // 等圧線をZスケール付きで表示
+  isobarLines.forEach(({ index, points }) => {
     const zPoints = points.map(p => new THREE.Vector3(p.x, p.y, index * zScale));
     const geometry = new THREE.BufferGeometry().setFromPoints(zPoints);
     const material = new THREE.LineBasicMaterial({ color: 0x00a0ff });
