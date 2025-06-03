@@ -2,15 +2,38 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>SVG等圧線ポリライン3D表示（XY形式対応）</title>
+  <title>等圧線3D表示（Z段差＋背景白＋スライダー付き）</title>
   <style>
-    body { margin: 0; overflow: hidden; }
+    body { margin: 0; overflow: hidden; background: #fff; }
     canvas { display: block; }
+    #slider-container {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 10px;
+      background: rgba(255,255,255,0.8);
+      border-radius: 8px;
+      font-family: sans-serif;
+    }
   </style>
 </head>
 <body>
+<div id="slider-container">
+  Z倍率: <input type="range" id="zSlider" min="0" max="5" value="1" step="0.1">
+  <span id="zValue">1.0</span>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script>
+let zScale = 1;
+document.getElementById("zSlider").addEventListener("input", (e) => {
+  zScale = parseFloat(e.target.value);
+  document.getElementById("zValue").textContent = zScale.toFixed(1);
+  updateZPositions();
+});
+
+let scene, camera, renderer, isobarMeshes = [];
+
 async function fetchAndParseSVG() {
   const res = await fetch("https://osaki2014.github.io/weather-map-3d/SPAS_MONO_202506021800.svg");
   const text = await res.text();
@@ -21,7 +44,7 @@ function extractIsobars(svg) {
   const lines = [];
   const polylines = svg.querySelectorAll('polyline');
 
-  polylines.forEach(polyline => {
+  polylines.forEach((polyline, index) => {
     const raw = polyline.getAttribute('points');
     if (!raw || raw.trim() === "") return;
 
@@ -37,44 +60,52 @@ function extractIsobars(svg) {
     }
 
     if (validPoints.length > 1) {
-      lines.push(validPoints);
+      lines.push({ index, points: validPoints });
     }
   });
 
   return lines;
 }
 
+function updateZPositions() {
+  isobarMeshes.forEach(({ mesh, index, points }) => {
+    const newPoints = points.map(p => new THREE.Vector3(p.x, p.y, index * zScale));
+    mesh.geometry.setFromPoints(newPoints);
+  });
+}
+
 async function main() {
-  const scene = new THREE.Scene();
+  scene = new THREE.Scene();
   scene.background = new THREE.Color(0xffffff);
 
-  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
   camera.position.set(0, -80, 80);
   camera.lookAt(0, 0, 0);
 
-  const renderer = new THREE.WebGLRenderer();
+  renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  const light = new THREE.DirectionalLight(0xffffff, 1);
+  const light = new THREE.DirectionalLight(0x000000, 1);
   light.position.set(0, 0, 100);
   scene.add(light);
 
   const svg = await fetchAndParseSVG();
   const isobars = extractIsobars(svg);
-  console.log("等圧線ポリライン数:", isobars.length);
 
-  isobars.forEach(line => {
-    const geometry = new THREE.BufferGeometry().setFromPoints(line);
-    const material = new THREE.LineBasicMaterial({ color: 0x00ffff });
+  isobars.forEach(({ index, points }) => {
+    const zPoints = points.map(p => new THREE.Vector3(p.x, p.y, index * zScale));
+    const geometry = new THREE.BufferGeometry().setFromPoints(zPoints);
+    const material = new THREE.LineBasicMaterial({ color: 0x00a0ff });
     const mesh = new THREE.Line(geometry, material);
     scene.add(mesh);
+    isobarMeshes.push({ mesh, index, points });
   });
 
   function animate() {
     requestAnimationFrame(animate);
-    camera.position.x = 80 * Math.cos(Date.now() * 0.0005);
-    camera.position.y = 80 * Math.sin(Date.now() * 0.0005);
+    camera.position.x = 100 * Math.cos(Date.now() * 0.0005);
+    camera.position.y = 100 * Math.sin(Date.now() * 0.0005);
     camera.lookAt(0, 0, 0);
     renderer.render(scene, camera);
   }
