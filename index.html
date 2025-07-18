@@ -1,89 +1,84 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>等圧線描画</title>
+  <meta charset="UTF-8">
+  <title>気象庁SVG地図3D表示</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #fff; }
-    canvas { display: block; }
-    #slider-container {
+    body { margin: 0; overflow: hidden; }
+    #sliderContainer {
       position: absolute;
       top: 10px;
       left: 10px;
+      z-index: 10;
+      background: rgba(255,255,255,0.7);
       padding: 10px;
-      background: rgba(255,255,255,0.8);
-      border-radius: 8px;
-      font-family: sans-serif;
+      border-radius: 5px;
     }
   </style>
-  <!-- CDNで読み込み -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/svg-path-properties@1.1.0/dist/svg-path-properties.min.js"></script>
 </head>
 <body>
-  <div id="slider-container">
-    等圧線Z倍率：
-    <input type="range" id="zSlider" min="0" max="5" value="1" step="0.1" />
-    <span id="zValue">1.0</span>
+  <div id="sliderContainer">
+    <input id="slider" type="range" min="0" max="1" step="0.01" value="0.5">
   </div>
+  <script src="three.min.js"></script>
+  <script src="svg-path-properties.bundle.js"></script>
   <script>
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({antialias: true});
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    camera.position.z = 200;
+    // ライト
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(0, 0, 1).normalize();
+    scene.add(light);
 
-    const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
-    const group = new THREE.Group();
-    scene.add(group);
-
-    const zSlider = document.getElementById("zSlider");
-    const zValue = document.getElementById("zValue");
-
-    zSlider.addEventListener("input", () => {
-      const z = parseFloat(zSlider.value);
-      zValue.textContent = z.toFixed(1);
-      updateLines(z);
-    });
-
-    let originalZ = 1;
-    function updateLines(z) {
-      group.children.forEach(line => {
-        line.scale.z = z / originalZ;
-      });
-      originalZ = z;
-    }
-
-    fetch("SPAS_MONO_202506021800.svg")
-      .then(res => res.text())
+    // SVGロード
+    fetch('SPAS_MONO_202507171800.svg')
+      .then(response => response.text())
       .then(svgText => {
         const parser = new DOMParser();
-        const svgDoc = parser.parseFromString(svgText, "image/svg+xml");
-        const paths = svgDoc.querySelectorAll("path");
+        const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+        const paths = svgDoc.querySelectorAll('path');
+        
         paths.forEach(path => {
-          const d = path.getAttribute("d");
+          const d = path.getAttribute('d');
           if (!d) return;
-          const properties = new SVGPathProperties(d);
-          const length = properties.getTotalLength();
-          const points = [];
-          for (let i = 0; i < length; i += 2) {
-            const { x, y } = properties.getPointAtLength(i);
-            points.push(new THREE.Vector3(x - 512, -(y - 512), 0));
+          const color = path.getAttribute('stroke') || '#ff0000';
+
+          try {
+            const properties = new SVGPathProperties(d);
+            const points = [];
+            const length = properties.getTotalLength();
+            for (let i = 0; i < length; i += 2) {
+              const { x, y } = properties.getPointAtLength(i);
+              points.push(new THREE.Vector3((x - 500) / 100, -(y - 500) / 100, 0));
+            }
+
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color });
+            const line = new THREE.Line(geometry, material);
+            scene.add(line);
+          } catch (e) {
+            console.warn('不正なパスをスキップ:', e);
           }
-          const geometry = new THREE.BufferGeometry().setFromPoints(points);
-          const line = new THREE.Line(geometry, material);
-          group.add(line);
         });
       });
 
+    camera.position.z = 5;
+
     function animate() {
       requestAnimationFrame(animate);
-      group.rotation.z += 0.001;
       renderer.render(scene, camera);
     }
     animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
   </script>
 </body>
 </html>
