@@ -2,20 +2,19 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>等圧線と前線の3D表示</title>
+  <title>等圧線と地図の表示</title>
   <style>
     body { margin: 0; overflow: hidden; background: #fff; }
     canvas { display: block; }
   </style>
-  <script src="./three.min.js"></script>
-  <script src="./svg-path-properties.bundle.js"></script>
+  <script src="three.min.js"></script>
+  <script src="svg-path-properties.bundle.js"></script>
 </head>
 <body>
 <script>
-  // Three.js の初期化
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
-  camera.position.set(0, 0, 500);
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
+  camera.position.set(0, 0, 1000);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -25,9 +24,12 @@
   const axesHelper = new THREE.AxesHelper(200);
   scene.add(axesHelper);
 
-  // SVGファイルを読み込む
+  // SVGファイル読み込み
   fetch('SPAS_MONO_202507171800.svg')
-    .then(response => response.text())
+    .then(response => {
+      if (!response.ok) throw new Error("SVGが読み込めません");
+      return response.text();
+    })
     .then(svgText => {
       const parser = new DOMParser();
       const svgDoc = parser.parseFromString(svgText, "image/svg+xml");
@@ -35,36 +37,36 @@
       const paths = svgDoc.querySelectorAll('path');
       const colors = ['#ff0000', '#0000ff', '#00aa00', '#aa00aa', '#ffaa00'];
 
-      paths.forEach((pathElem, index) => {
+      let count = 0;
+
+      paths.forEach((pathElem) => {
         const d = pathElem.getAttribute('d');
         if (!d) return;
 
         try {
           const props = new SVGPathProperties(d);
           const length = props.getTotalLength();
-          const geometry = new THREE.BufferGeometry();
           const points = [];
 
           for (let i = 0; i < length; i += 5) {
             const { x, y } = props.getPointAtLength(i);
-            points.push(x - 400, -(y - 400), 0);  // 中心をずらしY反転
+            points.push(new THREE.Vector3(x - 500, -y + 500, 0));
           }
 
-          geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-          const color = colors[index % colors.length];
-          const material = new THREE.LineBasicMaterial({ color });
+          const geometry = new THREE.BufferGeometry().setFromPoints(points);
+          const material = new THREE.LineBasicMaterial({ color: colors[count % colors.length] });
           const line = new THREE.Line(geometry, material);
           scene.add(line);
+          count++;
         } catch (e) {
-          console.warn('path parse error:', e);
+          console.warn('無効なパスです', e);
         }
       });
 
       animate();
     })
-    .catch(err => {
-      alert('SVGの読み込みに失敗しました');
-      console.error(err);
+    .catch(error => {
+      console.error('SVG読み込みエラー:', error);
     });
 
   function animate() {
