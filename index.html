@@ -2,71 +2,51 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>気象庁SVG地図3D表示</title>
+  <title>等圧線の表示</title>
   <style>
-    body { margin: 0; overflow: hidden; }
-    #sliderContainer {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 10;
-      background: rgba(255,255,255,0.7);
-      padding: 10px;
-      border-radius: 5px;
-    }
+    body { margin: 0; overflow: hidden; background: #fff; }
+    canvas { display: block; }
   </style>
-</head>
-<body>
-  <div id="sliderContainer">
-    <input id="slider" type="range" min="0" max="1" step="0.01" value="0.5">
-  </div>
   <script src="three.min.js"></script>
   <script src="svg-path-properties.bundle.js"></script>
+</head>
+<body>
   <script>
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer();
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
+    camera.position.set(0, 0, 1000);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // ライト
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(0, 0, 1).normalize();
-    scene.add(light);
+    const loader = new XMLHttpRequest();
+    loader.open("GET", "SPAS_MONO_202507171800.svg", true);
+    loader.overrideMimeType("image/svg+xml");
+    loader.onload = function() {
+      const svg = loader.responseXML.documentElement;
+      const paths = svg.querySelectorAll("path");
 
-    // SVGロード
-    fetch('SPAS_MONO_202507171800.svg')
-      .then(response => response.text())
-      .then(svgText => {
-        const parser = new DOMParser();
-        const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
-        const paths = svgDoc.querySelectorAll('path');
-        
-        paths.forEach(path => {
-          const d = path.getAttribute('d');
-          if (!d) return;
-          const color = path.getAttribute('stroke') || '#ff0000';
+      paths.forEach(path => {
+        const d = path.getAttribute("d");
+        if (!d) return;
 
-          try {
-            const properties = new SVGPathProperties(d);
-            const points = [];
-            const length = properties.getTotalLength();
-            for (let i = 0; i < length; i += 2) {
-              const { x, y } = properties.getPointAtLength(i);
-              points.push(new THREE.Vector3((x - 500) / 100, -(y - 500) / 100, 0));
-            }
+        const properties = new SVGPathProperties(d);
+        const length = properties.getTotalLength();
 
-            const geometry = new THREE.BufferGeometry().setFromPoints(points);
-            const material = new THREE.LineBasicMaterial({ color });
-            const line = new THREE.Line(geometry, material);
-            scene.add(line);
-          } catch (e) {
-            console.warn('不正なパスをスキップ:', e);
-          }
-        });
+        const points = [];
+        for (let i = 0; i < length; i += 2) {
+          const { x, y } = properties.getPointAtLength(i);
+          points.push(new THREE.Vector3(x - 500, -y + 500, 0));
+        }
+
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+        const line = new THREE.Line(geometry, material);
+        scene.add(line);
       });
-
-    camera.position.z = 5;
+    };
+    loader.send();
 
     function animate() {
       requestAnimationFrame(animate);
