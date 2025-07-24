@@ -2,13 +2,13 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>等圧線と地図の表示</title>
+  <title>SVG Path Viewer</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #fff; }
+    body { margin: 0; background: white; overflow: hidden; }
     canvas { display: block; }
   </style>
-  <script src="three.min.js"></script>
-  <script src="svg-path-properties.bundle.js"></script>
+  <script src="https://unpkg.com/three@0.150.1/build/three.min.js"></script>
+  <script src="https://unpkg.com/svg-path-properties@1.1.0/dist/svg-path-properties.min.js"></script>
 </head>
 <body>
 <script>
@@ -20,26 +20,24 @@
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  // 軸の補助線
-  const axesHelper = new THREE.AxesHelper(200);
-  scene.add(axesHelper);
+  // 背景確認用のグリッド
+  const gridHelper = new THREE.GridHelper(1000, 20);
+  scene.add(gridHelper);
 
-  // SVGファイル読み込み
+  // SVG読み込み
   fetch('SPAS_MONO_202507171800.svg')
-    .then(response => {
-      if (!response.ok) throw new Error("SVGが読み込めません");
-      return response.text();
-    })
+    .then(res => res.text())
     .then(svgText => {
       const parser = new DOMParser();
       const svgDoc = parser.parseFromString(svgText, "image/svg+xml");
 
       const paths = svgDoc.querySelectorAll('path');
-      const colors = ['#ff0000', '#0000ff', '#00aa00', '#aa00aa', '#ffaa00'];
+      console.log('パスの数:', paths.length);
 
+      const colors = ['#ff0000', '#0000ff', '#00aa00', '#aa00aa', '#ffaa00'];
       let count = 0;
 
-      paths.forEach((pathElem) => {
+      paths.forEach(pathElem => {
         const d = pathElem.getAttribute('d');
         if (!d) return;
 
@@ -59,14 +57,14 @@
           scene.add(line);
           count++;
         } catch (e) {
-          console.warn('無効なパスです', e);
+          console.warn('path エラー:', e);
         }
       });
 
       animate();
     })
     .catch(error => {
-      console.error('SVG読み込みエラー:', error);
+      console.error('SVG読み込み失敗:', error);
     });
 
   function animate() {
@@ -82,3 +80,4 @@
 </script>
 </body>
 </html>
+
